@@ -3,6 +3,54 @@ bin-exist() {[[ -n ${commands[$1]} ]]}
 
 bindkey -e      #use emacs style keybindings
 
+codex-whoami() {
+    local auth_file="$HOME/.codex/auth.json"
+    local login_status email name account_id
+
+    if ! bin-exist codex; then
+        echo "codex CLI not found in PATH"
+        return 1
+    fi
+
+    login_status=$(codex login status 2>&1 || true)
+    if [[ -z "$login_status" ]]; then
+        login_status="Not logged in"
+    fi
+
+    if [[ -r "$auth_file" ]] && bin-exist node; then
+        email=$(AUTH_FILE="$auth_file" node -e '
+const fs = require("fs");
+const auth = JSON.parse(fs.readFileSync(process.env.AUTH_FILE, "utf8"));
+const token = auth?.tokens?.id_token;
+if (!token) process.exit(0);
+const [, payload] = token.split(".");
+if (!payload) process.exit(0);
+const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+if (claims.email) process.stdout.write(claims.email);
+' 2>/dev/null)
+
+        name=$(AUTH_FILE="$auth_file" node -e '
+const fs = require("fs");
+const auth = JSON.parse(fs.readFileSync(process.env.AUTH_FILE, "utf8"));
+const token = auth?.tokens?.id_token;
+if (!token) process.exit(0);
+const [, payload] = token.split(".");
+if (!payload) process.exit(0);
+const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+if (claims.name) process.stdout.write(claims.name);
+' 2>/dev/null)
+    fi
+
+    if [[ -r "$auth_file" ]]; then
+        account_id=$(jq -r '.tokens.account_id // empty' "$auth_file" 2>/dev/null)
+    fi
+
+    echo "$login_status"
+    [[ -n "$name" ]] && echo "Name: $name"
+    [[ -n "$email" ]] && echo "Email: $email"
+    [[ -n "$account_id" ]] && echo "Account ID: $account_id"
+}
+
 # The double ESC to prepend "sudo" functionality is now handled by the 'sudo' OMZ plugin.
 
 export SUDO_PROMPT=$'[\e[31;5msudo\e[m] password for \e[33;1m%p\e[m: '

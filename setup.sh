@@ -67,6 +67,9 @@ else
 fi
 
 
+# 3. Change theme
+sed -i "s|export ZSH_THEME=.*|export ZSH_THEME="dst"|" "$ZSHRC_FILE"
+
 # --- Install custom plugins for Oh My Zsh ---
 echo "Installing custom zsh plugins into $CUSTOM_PLUGINS_DIR..."
 mkdir -p "$CUSTOM_PLUGINS_DIR"
